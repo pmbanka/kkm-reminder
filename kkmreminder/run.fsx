@@ -1,9 +1,13 @@
+#r "System"
+#r "System.IO"
+#r "System.Net"
+#r "System.Net.Mail"
+#r "System.Text.RegularExpressions"
 #load "../paket-files/include-scripts/net46/include.main.group.fsx"
 #load "kkm.fsx"
 
 open System
 open System.IO
-open System.Configuration
 
 module Email =
     open System
@@ -35,7 +39,7 @@ module Config =
 
 type RunResult = | TicketNotFound | NoNeedToRemind | ReminderSent 
 
-let Run () =
+let RunImpl () =
     let getConfig = Config.getValue ".secrets"
     let sendEmail = 
         Email.sendEmail (getConfig "EMAIL_USERNAME") (getConfig "EMAIL_PASSWORD") 
@@ -59,3 +63,6 @@ let Run () =
                 RunResult.NoNeedToRemind
         | None -> RunResult.TicketNotFound
     printfn "Run result: %A" result
+
+let Run (myTimer: TimerInfo) =
+    RunImpl ()
