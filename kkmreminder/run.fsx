@@ -64,5 +64,5 @@ let RunImpl () =
         | None -> RunResult.TicketNotFound
     printfn "Run result: %A" result
 
-let Run (myTimer: TimerInfo) =
+let Run (timer: TimerInfo) =
     RunImpl ()
