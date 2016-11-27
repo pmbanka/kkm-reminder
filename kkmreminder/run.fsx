@@ -3,11 +3,11 @@
 #r "System.Net"
 #r "System.Net.Mail"
 #r "System.Text.RegularExpressions"
-#load "../paket-files/include-scripts/net46/include.main.group.fsx"
+#r "System.Xml.Linq" 
+#r "../packages/FSharp.Data/lib/net40/FSharp.Data.dll" 
 #load "kkm.fsx"
 
 open System
-open System.IO
 
 module Email =
     open System
