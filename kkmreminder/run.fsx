@@ -14,9 +14,10 @@ module Email =
     open System.IO
     open System.Net
     open System.Net.Mail
-    let sendEmail (emailUsername:string) (emailPassword:string) fromAddress toAddress subject body =
-        use msg = new MailMessage(fromAddress, toAddress, subject, body)     
-        use client = new SmtpClient("smtp.gmail.com", 587)
+    let sendEmail (smtpHost:string) (emailUsername:string) (emailPassword:string) fromAddress toAddress subject body =
+        use msg = new MailMessage(fromAddress, toAddress, subject, body) 
+        use client = new SmtpClient(smtpHost, 587)
+        client.UseDefaultCredentials <- false
         client.Credentials <- new NetworkCredential(emailUsername, emailPassword)
         client.EnableSsl <- true
         client.Send msg
@@ -39,11 +40,15 @@ module Config =
 
 type RunResult = | TicketNotFound | NoNeedToRemind | ReminderSent 
 
-let RunImpl () =
+let RunImpl (log:string -> unit) =
     let getConfig = Config.getValue ".secrets"
     let sendEmail = 
-        Email.sendEmail (getConfig "EMAIL_USERNAME") (getConfig "EMAIL_PASSWORD") 
-                        (getConfig "SOURCE_EMAIL") (getConfig "TARGET_EMAIL")
+        Email.sendEmail 
+                (getConfig "SMTP_HOST")
+                (getConfig "SMTP_USERNAME") 
+                (getConfig "SMTP_PASSWORD") 
+                (getConfig "SOURCE_EMAIL") 
+                (getConfig "TARGET_EMAIL")
     let format (d:DateTime) = d.ToString ("dd.MM.yyyy (dddd)")
     let user = Kkm.createUserInfo (getConfig "USER_ID") (getConfig "CARD_NUMBER")
     let ticket = Kkm.downloadTicketInformation user
@@ -62,7 +67,7 @@ let RunImpl () =
             else
                 RunResult.NoNeedToRemind
         | None -> RunResult.TicketNotFound
-    printfn "Run result: %A" result
+    log (sprintf "Run result: %A" result)
 
-let Run (timer: TimerInfo) =
-    RunImpl ()
+let Run (timer: TimerInfo, log: TraceWriter) =
+    RunImpl log.Info
