@@ -55,8 +55,10 @@ let RunImpl (log:string -> unit) =
     let result = 
         match ticket with
         | Some t -> 
-            let diff = (t.endDate.Date - DateTime.Today.Date).TotalDays |> int
-            let isShoppingTime = diff <= 3 || (getConfig "FORCE_MAIL") = "TRUE"
+            let currentTime = 
+                TimeZoneInfo.ConvertTimeBySystemTimeZoneId (DateTime.UtcNow, "Central European Standard Time")
+            let diff = (t.endDate.Date - currentTime.Date).TotalDays |> int
+            let isShoppingTime = diff <= 3 || getConfig "FORCE_MAIL" = "TRUE"
             if isShoppingTime then
                 let subject = sprintf "Your KKM ticket expires in %d days" diff
                 let body = 
