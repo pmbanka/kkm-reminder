@@ -1,31 +1,15 @@
-module Kkm
+#r "../packages/FSharp.Data/lib/net40/FSharp.Data.dll"
+#r "../packages/FSharpx.Collections/lib/net40/FSharpx.Collections.dll"
+#r "../packages/FSharpx.Extras/lib/net45/FSharpx.Extras.dll"
+#load "common.fsx"
 
+open FSharp.Data
 open System
 open System.IO
 open System.Net
 open System.Text.RegularExpressions
-
-type System.DateTime with 
-    static member TryParseOption str =
-        match DateTime.TryParse str with
-        | true, r -> Some(r)
-        | _ -> None
-
-type Ticket = 
-  { price: string; 
-    startDate: DateTime; 
-    endDate: DateTime
-    ticketType: string }
-
-type UserInfo = { id: string; cardNumber: string }
-
-let createUserInfo id cardNumber =
-    { id = id; cardNumber = cardNumber }
-
-let private (|Regex|_|) pattern input =
-    let m = Regex.Match(input, pattern)
-    if m.Success then Some(List.tail [ for g in m.Groups -> g.Value ])
-    else None
+open FSharpx
+open FSharpx.Option
 
 let private getPrice html =
     match html with
@@ -55,27 +39,18 @@ let private getUrl userInfo (requestDate:DateTime) =
         userInfo.id
         userInfo.cardNumber
 
-let private getStringResponse (url:string) =
-    let req = HttpWebRequest.Create(url) :?> HttpWebRequest 
-    req.ProtocolVersion <- HttpVersion.Version10
-    req.Method <- "GET"
-    let resp = req.GetResponse() 
-    let stream = resp.GetResponseStream() 
-    let reader = new StreamReader(stream) 
-    let html = reader.ReadToEnd()
-    html
+let private getTicketInfo html = maybe {
+    let! price = getPrice html
+    let! ticketType = getTicketType html
+    let! startDate = getStartDate html 
+    let! endDate = getEndDate html
+    return 
+      { price = price
+        ticketType = ticketType
+        startDate = startDate
+        endDate = endDate } }
 
-let private getTicketInfo html =
-    let price = defaultArg (getPrice html) "unknown"
-    let ticketType = defaultArg (getTicketType html) "unknown"
-    let startDate = getStartDate html 
-    let endDate = getEndDate html
-    match startDate, endDate with
-    | Some s, Some e -> 
-        Some { price = price; ticketType = ticketType; startDate = s; endDate = e }
-    | _ -> None
-
-let downloadTicketInformation userInfo = 
+let downloadTicketInformation userInfo = async {
     let url = getUrl userInfo DateTime.Now
-    let response = getStringResponse url
-    getTicketInfo response
+    let! response = Http.AsyncRequestString url
+    return getTicketInfo response }
