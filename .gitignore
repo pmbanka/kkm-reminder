@@ -20,5 +20,6 @@ Publish
 /secrets
 /data
 .secrets
+secrets.json
 appsettings.json
 paket.exe
