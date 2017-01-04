@@ -9,6 +9,8 @@
 #load "common.fsx"
 #load "kkm.fsx"
 
+System.Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
+
 open System
 open System.Diagnostics
 open FSharpx
@@ -35,7 +37,7 @@ module Config =
     open FSharpx
     open FSharpx.Option
 
-    type JsonCfg = JsonProvider<"../secrets.example.json">
+    type JsonCfg = JsonProvider<"secrets.example.json">
 
     let fromFile (path:string) = 
         try
