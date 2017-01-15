@@ -3,3 +3,4 @@ framework: net45
 
 nuget FSharp.Data
 nuget FSharpx.Extras
+nuget Chessie
