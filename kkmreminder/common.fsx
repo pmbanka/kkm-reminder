@@ -12,12 +12,6 @@ type DateTime with
         | true, d -> Some d
         | _ -> None
 
-type Int32 with
-    static member TryParseOption str = 
-        match Int32.TryParse str with
-        | true, i -> Some i
-        | _ -> None
-
 type UserInfo = { 
     id: string
     cardNumber: string }
@@ -39,8 +33,6 @@ type Ticket = {
     startDate: DateTime
     endDate: DateTime
     ticketType: string }
-
-type RunResult = TicketNotFound | NoNeedToRemind | ReminderSent
 
 let (|Regex|_|) pattern input =
     let m = Regex.Match (input, pattern)

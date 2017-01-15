@@ -114,6 +114,5 @@ let runImpl printFn = async {
                         for msg in log do printFn ("   " + msg)
     | Fail  errors   -> printFn "Error:"
                         for msg in errors do printFn ("   " + msg) }
-
 let Run (timer: TimerInfo, log: TraceWriter) =
     runImpl log.Info |> Async.StartAsTask
