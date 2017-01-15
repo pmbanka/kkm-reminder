@@ -16,24 +16,24 @@ type Int32 with
         | true, i -> Some i
         | _ -> None
 
-type UserInfo = 
-  { id: string
+type UserInfo = { 
+    id: string
     cardNumber: string }
 
-type EmailInfo =
-  { smtpHost: string
+type EmailInfo = { 
+    smtpHost: string
     smtpUsername: string
     smtpPassword: string
     sourceEmail: string
     targetEmail: string }
 
-type Config =
-  { email: EmailInfo
+type Config = { 
+    email: EmailInfo
     user: UserInfo
     forceMail: bool }
 
-type Ticket = 
-  { price: string 
+type Ticket = { 
+    price: string 
     startDate: DateTime
     endDate: DateTime
     ticketType: string }

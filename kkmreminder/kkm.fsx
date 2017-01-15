@@ -1,6 +1,4 @@
-#r "../packages/FSharp.Data/lib/net40/FSharp.Data.dll"
-#r "../packages/FSharpx.Collections/lib/net40/FSharpx.Collections.dll"
-#r "../packages/FSharpx.Extras/lib/net45/FSharpx.Extras.dll"
+#load "../paket-files/include-scripts/net45/include.main.group.fsx"
 #load "common.fsx"
 
 open FSharp.Data
@@ -44,8 +42,8 @@ let private getTicketInfo html = maybe {
     let! ticketType = getTicketType html
     let! startDate = getStartDate html 
     let! endDate = getEndDate html
-    return 
-      { price = price
+    return { 
+        price = price
         ticketType = ticketType
         startDate = startDate
         endDate = endDate } }

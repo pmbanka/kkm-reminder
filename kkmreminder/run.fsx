@@ -2,14 +2,9 @@
 #r "System.IO"
 #r "System.Net"
 #r "System.Text.RegularExpressions"
-#r "System.Xml.Linq" 
-#r "../packages/FSharpx.Collections/lib/net40/FSharpx.Collections.dll"
-#r "../packages/FSharpx.Extras/lib/net45/FSharpx.Extras.dll"
-#r "../packages/FSharp.Data/lib/net40/FSharp.Data.dll"
+#load "../paket-files/include-scripts/net45/include.main.group.fsx"
 #load "common.fsx"
 #load "kkm.fsx"
-
-System.Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
 open System
 open System.Diagnostics
@@ -36,19 +31,20 @@ module Config =
     open FSharp.Data
     open FSharpx
     open FSharpx.Option
-
-    type JsonCfg = JsonProvider<"secrets.example.json">
+    [<Literal>]
+    let CfgLocation = __SOURCE_DIRECTORY__ + "/secrets.example.json"
+    type JsonCfg = JsonProvider<CfgLocation>
 
     let fromFile (path:string) = 
         try
             let json = JsonCfg.Load path
-            let cfg = 
-              { email = 
-                  { smtpHost = json.SmtpHost
-                    smtpUsername = json.SmtpUsername
-                    smtpPassword = json.SmtpPassword
-                    sourceEmail = json.SourceEmail
-                    targetEmail = json.TargetEmail }
+            let cfg = { 
+                email = { 
+                        smtpHost = json.SmtpHost
+                        smtpUsername = json.SmtpUsername
+                        smtpPassword = json.SmtpPassword
+                        sourceEmail = json.SourceEmail
+                        targetEmail = json.TargetEmail }
                 user = { id = json.UserId; cardNumber = json.CardNumber }
                 forceMail = json.ForceMail } 
             Some cfg
@@ -64,13 +60,13 @@ module Config =
         let! id = getEnv "USER_ID"
         let! num = getEnv "CARD_NUMBER"
         let! fm = getEnv "FORCE_MAIL"
-        return 
-          { email = 
-              { smtpHost = h
-                smtpUsername = u
-                smtpPassword = p
-                sourceEmail = s
-                targetEmail = t }
+        return { 
+            email = { 
+                    smtpHost = h
+                    smtpUsername = u
+                    smtpPassword = p
+                    sourceEmail = s
+                    targetEmail = t }
             user = { id = id; cardNumber = num }
             forceMail = fm = "TRUE" } }
 
@@ -98,7 +94,7 @@ let sendReminder ticket config = async {
 let runImpl log = async {
     try
         let cfg = 
-            Config.getConfig "../secrets.json" 
+            Config.getConfig "secrets.json" 
             |> Option.getOrFail "Could not get config"
 
         let! ticket = Kkm.downloadTicketInformation cfg.user
