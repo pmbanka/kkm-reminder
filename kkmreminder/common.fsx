@@ -3,6 +3,8 @@ module Common
 open System
 open System.Net.Mail
 open System.Text.RegularExpressions
+#load "../paket-files/include-scripts/net45/include.main.group.fsx"
+open Chessie.ErrorHandling
 
 type DateTime with
     static member TryParseOption str =
@@ -41,6 +43,8 @@ type Ticket = {
 type RunResult = TicketNotFound | NoNeedToRemind | ReminderSent
 
 let (|Regex|_|) pattern input =
-    let m = Regex.Match(input, pattern)
-    if m.Success then Some(List.tail [ for g in m.Groups -> g.Value ])
+    let m = Regex.Match (input, pattern)
+    if m.Success then Some (List.tail [ for g in m.Groups -> g.Value ])
     else None
+
+let resultToAsync (x: Result<'a,'b>) = x |> Async.singleton |> AR    

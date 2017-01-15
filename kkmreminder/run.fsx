@@ -8,29 +8,33 @@
 
 open System
 open System.Diagnostics
-open FSharpx
-open FSharpx.Option
+open Chessie.ErrorHandling
 
 module Email =
     open System
     open System.IO
     open System.Net
     open System.Net.Mail
+    open Chessie.ErrorHandling
 
-    let sendEmail config subject body = async {
+    let sendEmail config subject body = asyncTrial {
         use msg = new MailMessage (config.sourceEmail, config.targetEmail, subject, body) 
         use client = new SmtpClient (config.smtpHost, 587)
         client.UseDefaultCredentials <- false
         client.Credentials <- new NetworkCredential (config.smtpUsername, config.smtpPassword)
         client.EnableSsl <- true
-        do! client.SendMailAsync msg |> Async.AwaitTask }
+        try
+            do! client.SendMailAsync msg |> Async.AwaitTask
+            return ()
+        with
+        | ex -> return! fail ("Could not send email: " + ex.Message) |> resultToAsync }
 
 module Config =
     open System
     open System.IO
     open FSharp.Data
-    open FSharpx
-    open FSharpx.Option
+    open Chessie.ErrorHandling
+
     [<Literal>]
     let CfgLocation = __SOURCE_DIRECTORY__ + "/secrets.example.json"
     type JsonCfg = JsonProvider<CfgLocation>
@@ -47,11 +51,14 @@ module Config =
                         targetEmail = json.TargetEmail }
                 user = { id = json.UserId; cardNumber = json.CardNumber }
                 forceMail = json.ForceMail } 
-            Some cfg
-        with ex -> None
+            pass cfg
+        with ex -> fail <| "Config could not be read: " + ex.Message
             
-    let fromEnv () = maybe {
-        let getEnv = Environment.GetEnvironmentVariable >> Option.ofObj
+    let fromEnv () = trial {
+        let getEnv name = 
+            Environment.GetEnvironmentVariable name 
+            |> Option.ofObj 
+            |> failIfNone (name + " config env variable not found")
         let! h = getEnv "SMTP_HOST"
         let! u = getEnv "SMTP_USERNAME"
         let! p = getEnv "SMTP_PASSWORD"
@@ -60,7 +67,7 @@ module Config =
         let! id = getEnv "USER_ID"
         let! num = getEnv "CARD_NUMBER"
         let! fm = getEnv "FORCE_MAIL"
-        return { 
+        return {
             email = { 
                     smtpHost = h
                     smtpUsername = u
@@ -70,12 +77,16 @@ module Config =
             user = { id = id; cardNumber = num }
             forceMail = fm = "TRUE" } }
 
+    let inline private orElse fallback value =
+        match value with
+        | Ok _ -> value
+        | Bad _ -> fallback
+
     let getConfig fallbackFilePath =
         fromEnv ()
-        |> Option.orElse (fromFile fallbackFilePath)
+        |> orElse (fromFile fallbackFilePath)
 
-
-let sendReminder ticket config = async {
+let sendReminder ticket config = asyncTrial {
     let format (d:DateTime) = d.ToString ("dd.MM.yyyy (dddd)")
     let currentTime = 
             TimeZoneInfo.ConvertTimeBySystemTimeZoneId (DateTime.UtcNow, "Central European Standard Time")
@@ -87,23 +98,22 @@ let sendReminder ticket config = async {
             sprintf "Current ticket is valid since %s until %s\n\nToday is %s" 
                 (format ticket.startDate) (format ticket.endDate) (format DateTime.Today)
         do! Email.sendEmail config.email subject body
-        return RunResult.ReminderSent
     else
-        return RunResult.NoNeedToRemind }
+        do! warn "Sending email skipped" () |> resultToAsync }
 
-let runImpl log = async {
-    try
-        let cfg = 
-            Config.getConfig "secrets.json" 
-            |> Option.getOrFail "Could not get config"
+let runImplAsync = asyncTrial {
+    let! cfg = Config.getConfig (__SOURCE_DIRECTORY__ + "/secrets.json")
+    let! ticket = Kkm.downloadTicketInformation cfg.user
+    do! sendReminder ticket cfg }
 
-        let! ticket = Kkm.downloadTicketInformation cfg.user
-        let! result = async {
-            match ticket with
-            | Some t -> return! sendReminder t cfg
-            | None -> return RunResult.TicketNotFound }
-        log <| sprintf "%A" result
-    with ex -> log ex.Message }
+let runImpl printFn = async {
+    let! result = runImplAsync |> Async.ofAsyncResult
+    match result with
+    | Pass  _        -> printFn "Ok"
+    | Warn (_, log)  -> printFn "Warning:"
+                        for msg in log do printFn ("   " + msg)
+    | Fail  errors   -> printFn "Error:"
+                        for msg in errors do printFn ("   " + msg) }
 
 let Run (timer: TimerInfo, log: TraceWriter) =
     runImpl log.Info |> Async.StartAsTask

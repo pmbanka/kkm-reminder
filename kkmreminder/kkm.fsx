@@ -6,18 +6,17 @@ open System
 open System.IO
 open System.Net
 open System.Text.RegularExpressions
-open FSharpx
-open FSharpx.Option
+open Chessie.ErrorHandling
 
 let private getPrice html =
     match html with
-    | Regex "<div>Cena.*(\d\d,\d\d zł).*</div>" [ price ] -> Some price
-    | _ -> None
+    | Regex "<div>Cena.*(\d\d,\d\d zł).*</div>" [ price ] -> pass price
+    | _ -> warn "Price unavailable" "Unavailable"
 
 let private getTicketType html = 
     match html with
-    | Regex "<div>Rodzaj biletu.*<b>(.*)</b>.*</div>" [ price ] -> Some price
-    | _ -> None
+    | Regex "<div>Rodzaj biletu.*<b>(.*)</b>.*</div>" [ ticketType ] -> pass ticketType
+    | _ -> warn "Ticket type unavailable" "Unavailable"
 
 let private getDate regex html =
     let date = 
@@ -25,6 +24,7 @@ let private getDate regex html =
         | Regex regex [ startDate ] -> Some startDate
         | _ -> None
     Option.bind DateTime.TryParseOption date
+    |> failIfNone "Could not parse date"
 
 let private getStartDate = getDate "<div>Data początku ważno\u015Bci.*<b>(.*)</b>.*</div>"
 
@@ -37,7 +37,7 @@ let private getUrl userInfo (requestDate:DateTime) =
         userInfo.id
         userInfo.cardNumber
 
-let private getTicketInfo html = maybe {
+let private getTicketInfo html = trial {
     let! price = getPrice html
     let! ticketType = getTicketType html
     let! startDate = getStartDate html 
@@ -48,7 +48,13 @@ let private getTicketInfo html = maybe {
         startDate = startDate
         endDate = endDate } }
 
-let downloadTicketInformation userInfo = async {
+let downloadTicketInformation userInfo = asyncTrial {
     let url = getUrl userInfo DateTime.Now
-    let! response = Http.AsyncRequestString url
-    return getTicketInfo response }
+    let! response = 
+        Http.AsyncRequestString url
+        |> Async.Catch
+        |> Async.map (function | Choice1Of2 s -> pass s | Choice2Of2 ex -> fail ex.Message)
+    let! ticket =
+        response
+        |> bind getTicketInfo
+    return ticket }
