@@ -39,4 +39,6 @@ let (|Regex|_|) pattern input =
     if m.Success then Some (List.tail [ for g in m.Groups -> g.Value ])
     else None
 
-let resultToAsync (x: Result<'a,'b>) = x |> Async.singleton |> AR    
+let resultToAsync (x: Result<'a,'b>) = x |> Async.singleton |> AR
+
+let getCurrentTime () = TimeZoneInfo.ConvertTimeBySystemTimeZoneId (DateTime.UtcNow, "Central European Standard Time")  

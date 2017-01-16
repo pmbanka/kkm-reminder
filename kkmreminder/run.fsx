@@ -5,10 +5,8 @@
 #load "../paket-files/include-scripts/net45/include.main.group.fsx"
 #load "common.fsx"
 #load "kkm.fsx"
-
 open System
 open System.Diagnostics
-open Chessie.ErrorHandling
 
 module Email =
     open System
@@ -25,7 +23,6 @@ module Email =
         client.EnableSsl <- true
         try
             do! client.SendMailAsync msg |> Async.AwaitTask
-            return ()
         with
         | ex -> return! fail ("Could not send email: " + ex.Message) |> resultToAsync }
 
@@ -58,7 +55,7 @@ module Config =
         let getEnv name = 
             Environment.GetEnvironmentVariable name 
             |> Option.ofObj 
-            |> failIfNone (name + " config env variable not found")
+            |> failIfNone (name + " config env variable not found")       
         let! h = getEnv "SMTP_HOST"
         let! u = getEnv "SMTP_USERNAME"
         let! p = getEnv "SMTP_PASSWORD"
@@ -86,33 +83,39 @@ module Config =
         fromEnv ()
         |> orElse (fromFile fallbackFilePath)
 
-let sendReminder ticket config = asyncTrial {
-    let format (d:DateTime) = d.ToString ("dd.MM.yyyy (dddd)")
-    let currentTime = 
-            TimeZoneInfo.ConvertTimeBySystemTimeZoneId (DateTime.UtcNow, "Central European Standard Time")
-    let diff = (ticket.endDate.Date - currentTime.Date).TotalDays |> int
-    let isShoppingTime = diff <= 3 || config.forceMail
-    if isShoppingTime then
-        let subject = sprintf "Your KKM ticket expires in %d days" diff
-        let body = 
-            sprintf "Current ticket is valid since %s until %s\n\nToday is %s" 
-                (format ticket.startDate) (format ticket.endDate) (format DateTime.Today)
-        do! Email.sendEmail config.email subject body
-    else
-        do! warn "Sending email skipped" () |> resultToAsync }
+module Reminder =
+    open System
+    open Chessie.ErrorHandling
 
-let runImplAsync = asyncTrial {
-    let! cfg = Config.getConfig (__SOURCE_DIRECTORY__ + "/secrets.json")
-    let! ticket = Kkm.downloadTicketInformation cfg.user
-    do! sendReminder ticket cfg }
+    let private sendReminder ticket config = asyncTrial {
+        let currentTime = getCurrentTime ()
+        let diff = (ticket.endDate.Date - currentTime.Date).TotalDays |> int
+        let isShoppingTime = diff <= 3 || config.forceMail
+        if isShoppingTime then
+            let format (d:DateTime) = d.ToString ("dd.MM.yyyy (dddd)")
+            let subject = sprintf "Your KKM ticket expires in %d days" diff
+            let body = 
+                sprintf "Current ticket is valid since %s until %s\n\nToday is %s" 
+                    (format ticket.startDate) (format ticket.endDate) (format DateTime.Today)
+            return! Email.sendEmail config.email subject body
+        else
+            return! warn "Sending email skipped" () |> resultToAsync }
 
-let runImpl printFn = async {
-    let! result = runImplAsync |> Async.ofAsyncResult
-    match result with
-    | Pass  _        -> printFn "Ok"
-    | Warn (_, log)  -> printFn "Warning:"
-                        for msg in log do printFn ("   " + msg)
-    | Fail  errors   -> printFn "Error:"
-                        for msg in errors do printFn ("   " + msg) }
+    let private runImplAsync = asyncTrial {
+        let! cfg = Config.getConfig (__SOURCE_DIRECTORY__ + "/secrets.json")
+        let! ticket = Kkm.downloadTicketInformation cfg.user
+        return! sendReminder ticket cfg }
+
+    let run printFn = async {
+        let! result = runImplAsync |> Async.ofAsyncResult
+        match result with
+        | Pass _         -> printFn "Ok"
+        | Warn (_, log)  -> printFn "Warning:"
+                            for msg in log do printFn ("   " + msg)
+        | Fail errors    -> printFn "Error:"
+                            for msg in errors do printFn ("   " + msg) }
+
+// Reminder.run Console.WriteLine |> Async.RunSynchronously
+
 let Run (timer: TimerInfo, log: TraceWriter) =
-    runImpl log.Info |> Async.StartAsTask
+    Reminder.run log.Info |> Async.StartAsTask

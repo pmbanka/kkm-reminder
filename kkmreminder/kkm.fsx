@@ -49,7 +49,7 @@ let private getTicketInfo html = trial {
         endDate = endDate } }
 
 let downloadTicketInformation userInfo = asyncTrial {
-    let url = getUrl userInfo DateTime.Now
+    let url = getUrl userInfo (getCurrentTime ())
     let! response = 
         Http.AsyncRequestString url
         |> Async.Catch
