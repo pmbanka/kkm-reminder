@@ -10,12 +10,12 @@ open Chessie.ErrorHandling
 
 let private getPrice html =
     match html with
-    | Regex "<div>Cena.*(\d\d,\d\d zł).*</div>" [ price ] -> pass price
+    | Regex "<div>Cena.*(\d\d,\d\d zł).*</div>" [ price ] -> Trial.pass price
     | _ -> warn "Price unavailable" "Unavailable"
 
 let private getTicketType html = 
     match html with
-    | Regex "<div>Rodzaj biletu.*<b>(.*)</b>.*</div>" [ ticketType ] -> pass ticketType
+    | Regex "<div>Rodzaj biletu.*<b>(.*)</b>.*</div>" [ ticketType ] -> Trial.pass ticketType
     | _ -> warn "Ticket type unavailable" "Unavailable"
 
 let private getDate regex html =
@@ -24,7 +24,7 @@ let private getDate regex html =
         | Regex regex [ startDate ] -> Some startDate
         | _ -> None
     Option.bind DateTime.TryParseOption date
-    |> failIfNone "Could not parse date"
+    |> Trial.failIfNone "Could not parse date"
 
 let private getStartDate = getDate "<div>Data początku ważno\u015Bci.*<b>(.*)</b>.*</div>"
 
@@ -53,8 +53,8 @@ let downloadTicketInformation userInfo = asyncTrial {
     let! response = 
         Http.AsyncRequestString url
         |> Async.Catch
-        |> Async.map (function | Choice1Of2 s -> pass s | Choice2Of2 ex -> fail ex.Message)
+        |> Async.map (function | Choice1Of2 s -> Trial.pass s | Choice2Of2 ex -> Trial.fail ex.Message)
     let! ticket =
         response
-        |> bind getTicketInfo
+        |> Trial.bind getTicketInfo
     return ticket }

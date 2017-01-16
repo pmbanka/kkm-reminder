@@ -24,7 +24,7 @@ module Email =
         try
             do! client.SendMailAsync msg |> Async.AwaitTask
         with
-        | ex -> return! fail ("Could not send email: " + ex.Message) |> resultToAsync }
+        | ex -> return! Trial.fail ("Could not send email: " + ex.Message) |> resultToAsync }
 
 module Config =
     open System
@@ -47,15 +47,18 @@ module Config =
                         sourceEmail = json.SourceEmail
                         targetEmail = json.TargetEmail }
                 user = { id = json.UserId; cardNumber = json.CardNumber }
-                forceMail = json.ForceMail } 
-            pass cfg
-        with ex -> fail <| "Config could not be read: " + ex.Message
+                forceMail = json.ForceMail
+                warningDays = json.WarningDays } 
+            Trial.pass cfg
+        with ex -> Trial.fail <| "Config could not be read from json: " + ex.Message
             
     let fromEnv () = trial {
-        let getEnv name = 
+        let getEnvWithTransformation t name = 
             Environment.GetEnvironmentVariable name 
-            |> Option.ofObj 
-            |> failIfNone (name + " config env variable not found")       
+            |> Option.ofObj
+            |> t
+            |> Trial.failIfNone (name + " config env variable not found")
+        let getEnv = getEnvWithTransformation id 
         let! h = getEnv "SMTP_HOST"
         let! u = getEnv "SMTP_USERNAME"
         let! p = getEnv "SMTP_PASSWORD"
@@ -63,7 +66,8 @@ module Config =
         let! t = getEnv "TARGET_EMAIL"
         let! id = getEnv "USER_ID"
         let! num = getEnv "CARD_NUMBER"
-        let! fm = getEnv "FORCE_MAIL"
+        let! fm = getEnvWithTransformation (Option.map ((=) "TRUE")) "FORCE_MAIL"
+        let! wd = getEnvWithTransformation (Option.bind Int32.TryParseOption) "WARNING_DAYS"
         return {
             email = { 
                     smtpHost = h
@@ -72,7 +76,8 @@ module Config =
                     sourceEmail = s
                     targetEmail = t }
             user = { id = id; cardNumber = num }
-            forceMail = fm = "TRUE" } }
+            forceMail = fm
+            warningDays = wd } }
 
     let inline private orElse fallback value =
         match value with
@@ -90,7 +95,7 @@ module Reminder =
     let private sendReminder ticket config = asyncTrial {
         let currentTime = getCurrentTime ()
         let diff = (ticket.endDate.Date - currentTime.Date).TotalDays |> int
-        let isShoppingTime = diff <= 3 || config.forceMail
+        let isShoppingTime = diff <= config.warningDays || config.forceMail
         if isShoppingTime then
             let format (d:DateTime) = d.ToString ("dd.MM.yyyy (dddd)")
             let subject = sprintf "Your KKM ticket expires in %d days" diff
@@ -99,7 +104,7 @@ module Reminder =
                     (format ticket.startDate) (format ticket.endDate) (format DateTime.Today)
             return! Email.sendEmail config.email subject body
         else
-            return! warn "Sending email skipped" () |> resultToAsync }
+            return! Trial.warn "Sending email skipped" () |> resultToAsync }
 
     let private runImplAsync = asyncTrial {
         let! cfg = Config.getConfig (__SOURCE_DIRECTORY__ + "/secrets.json")

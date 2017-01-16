@@ -12,6 +12,12 @@ type DateTime with
         | true, d -> Some d
         | _ -> None
 
+type Int32 with
+    static member TryParseOption str =
+        match Int32.TryParse str with
+        | true, d -> Some d
+        | _ -> None
+
 type UserInfo = { 
     id: string
     cardNumber: string }
@@ -26,7 +32,8 @@ type EmailInfo = {
 type Config = { 
     email: EmailInfo
     user: UserInfo
-    forceMail: bool }
+    forceMail: bool
+    warningDays: int }
 
 type Ticket = { 
     price: string 
@@ -41,4 +48,4 @@ let (|Regex|_|) pattern input =
 
 let resultToAsync (x: Result<'a,'b>) = x |> Async.singleton |> AR
 
-let getCurrentTime () = TimeZoneInfo.ConvertTimeBySystemTimeZoneId (DateTime.UtcNow, "Central European Standard Time")  
+let getCurrentTime () = TimeZoneInfo.ConvertTimeBySystemTimeZoneId (DateTime.UtcNow, "Central European Standard Time")
