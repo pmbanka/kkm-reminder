@@ -11,6 +11,9 @@ type DateTime with
         match DateTime.TryParse str with
         | true, d -> Some d
         | _ -> None
+    
+    static member CESNow
+        with get () = TimeZoneInfo.ConvertTimeBySystemTimeZoneId (DateTime.UtcNow, "Central European Standard Time")
 
 type Int32 with
     static member TryParseOption str =
@@ -46,6 +49,17 @@ let (|Regex|_|) pattern input =
     if m.Success then Some (List.tail [ for g in m.Groups -> g.Value ])
     else None
 
-let resultToAsync (x: Result<'a,'b>) = x |> Async.singleton |> AR
+module Trial =
+    let inline resultToAsync (x: Result<'a,'b>) = x |> Async.singleton |> AR
 
-let getCurrentTime () = TimeZoneInfo.ConvertTimeBySystemTimeZoneId (DateTime.UtcNow, "Central European Standard Time")
+    let inline orElse fallback value =
+        match value with
+        | Ok _ -> value
+        | Bad _ -> fallback
+
+module AsyncTrial =
+    let inline pass x = Trial.pass x |> Trial.resultToAsync
+
+    let inline warn msg x = Trial.warn msg x |> Trial.resultToAsync
+
+    let inline fail msg = Trial.fail msg |> Trial.resultToAsync

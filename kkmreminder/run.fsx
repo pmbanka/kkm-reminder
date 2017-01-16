@@ -24,7 +24,7 @@ module Email =
         try
             do! client.SendMailAsync msg |> Async.AwaitTask
         with
-        | ex -> return! Trial.fail ("Could not send email: " + ex.Message) |> resultToAsync }
+        | ex -> return! AsyncTrial.fail ("Could not send email: " + ex.Message) }
 
 module Config =
     open System
@@ -79,22 +79,16 @@ module Config =
             forceMail = fm
             warningDays = wd } }
 
-    let inline private orElse fallback value =
-        match value with
-        | Ok _ -> value
-        | Bad _ -> fallback
-
     let getConfig fallbackFilePath =
         fromEnv ()
-        |> orElse (fromFile fallbackFilePath)
+        |> Trial.orElse (fromFile fallbackFilePath)
 
 module Reminder =
     open System
     open Chessie.ErrorHandling
 
     let private sendReminder ticket config = asyncTrial {
-        let currentTime = getCurrentTime ()
-        let diff = (ticket.endDate.Date - currentTime.Date).TotalDays |> int
+        let diff = (ticket.endDate.Date - DateTime.CESNow.Date).TotalDays |> int
         let isShoppingTime = diff <= config.warningDays || config.forceMail
         if isShoppingTime then
             let format (d:DateTime) = d.ToString ("dd.MM.yyyy (dddd)")
@@ -104,7 +98,7 @@ module Reminder =
                     (format ticket.startDate) (format ticket.endDate) (format DateTime.Today)
             return! Email.sendEmail config.email subject body
         else
-            return! Trial.warn "Sending email skipped" () |> resultToAsync }
+            return! AsyncTrial.warn "Sending email skipped" () }
 
     let private runImplAsync = asyncTrial {
         let! cfg = Config.getConfig (__SOURCE_DIRECTORY__ + "/secrets.json")
