@@ -3,7 +3,7 @@ module Common
 open System
 open System.Net.Mail
 open System.Text.RegularExpressions
-#load "../paket-files/include-scripts/net45/include.main.group.fsx"
+#load "../paket-files/include-scripts/net45/include.chessie.fsx"
 open Chessie.ErrorHandling
 
 type DateTime with

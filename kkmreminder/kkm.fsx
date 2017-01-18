@@ -11,12 +11,12 @@ open Chessie.ErrorHandling
 let private getPrice html =
     match html with
     | Regex "<div>Cena.*(\d\d,\d\d zł).*</div>" [ price ] -> Trial.pass price
-    | _ -> warn "Price unavailable" "Unavailable"
+    | _ -> Trial.warn "Price unavailable" "Unavailable"
 
 let private getTicketType html = 
     match html with
     | Regex "<div>Rodzaj biletu.*<b>(.*)</b>.*</div>" [ ticketType ] -> Trial.pass ticketType
-    | _ -> warn "Ticket type unavailable" "Unavailable"
+    | _ -> Trial.warn "Ticket type unavailable" "Unavailable"
 
 let private getDate regex html =
     let date = 
